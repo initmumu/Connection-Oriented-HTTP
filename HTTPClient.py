@@ -1,7 +1,8 @@
 import socket
 import queue
 import threading
-import HTTPRequest
+from HTTPRequest import Request
+from HTTPResponse import Response
 
 class HTTPClient:
     def __init__(self, server_host, server_port):
@@ -20,37 +21,44 @@ class HTTPClient:
         self.client_socket.connect((self.SERVER_HOST, self.SERVER_PORT))
 
         # 송신 쓰레드 생성
-        sender_thread = threading.Thread(target=self.message_sender)
+        sender_thread = threading.Thread(target=self.messageSender)
+
+        # daemon 설정
+        sender_thread.daemon = True
 
         # 송신 쓰레드 실행
         sender_thread.start()
 
         # 수신 쓰레드 생성
-        receiver_thread = threading.Thread(target=self.message_receiver)
+        receiver_thread = threading.Thread(target=self.messageReceiver)
 
+        # daemon 설정
+        receiver_thread.daemon = True
 
         # 수신 쓰레드 실행
         receiver_thread.start()
 
 
-    def send_message(self, msg):
+    def sendMessage(self, msg):
         '''
         msg: string
         '''
-        req = HTTPRequest.Request("GET", self.SERVER_HOST, "/", msg)
-        self.sendMQ.put(req.get())
-        
+        req = Request()
+        req.setRequest("GET", self.SERVER_HOST, "/", msg)
+        self.sendMQ.put(str(req))
     
-    def message_sender(self):
+    def messageSender(self):
         while True:
             item = self.sendMQ.get()
             self.client_socket.sendall(item.encode())
             self.sendMQ.task_done()
 
-    def recv_message(self):
-        return self.recvMQ.get()
+    def recvMessage(self):
+        res = Response()
+        res.setResponse(self.recvMQ.get())
+        return res
 
-    def message_receiver(self):
+    def messageReceiver(self):
         while True:
             item = self.client_socket.recv(1024)
             self.recvMQ.put(item.decode('utf-8'))
