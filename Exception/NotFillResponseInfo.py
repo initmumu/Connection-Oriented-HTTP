@@ -1,0 +1,2 @@
+class NotFillResponseInfo(Exception):
+    pass

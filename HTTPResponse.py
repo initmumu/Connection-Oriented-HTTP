@@ -1,4 +1,5 @@
 from Exception.NotFillResponseInfo import NotFillResponseInfo
+import json
 
 STATUS_CODE = {
     100: 'Continue',
@@ -75,7 +76,7 @@ class Response:
         self.body = None
 
     def setResponse(self, res):
-        header, self.body = tuple(res.split("\r\n\r\n"))
+        header, body = tuple(res.split("\r\n\r\n"))
         
         header = header.split("\r\n")
         statusLine = header[0].split()
@@ -86,6 +87,12 @@ class Response:
         for i in range(1, len(header)):
             key, value = header[i].split(": ")
             self.header[key] = value
+
+        if self.header["Content-Type"] == "application/json":
+            self.body = json.loads(body)
+
+        elif self.header["Content-Type"] == "text/plain":
+            self.body = body
 
     def setMethod(self, method):
         self.method = method
@@ -101,9 +108,22 @@ class Response:
         self.header[key] = value
 
     def setBody(self, data):
+        if type(data) is dict:
+            self.setHeader("Content-Type", "application/json")
+            data = json.dumps(data, ensure_ascii=False)
+
+        elif type(data) is str:
+            self.setHeader("Content-Type", "text/plain")
+
         self.body = data
 
-    def checkInfo(self):
+    def setContentLength(self):
+        if self.body is None:
+            return
+        
+        self.header["Content-Length"] = len(self.body)
+
+    def checkValidation(self):
         if self.version is None:
             return False
         
@@ -120,7 +140,7 @@ class Response:
 
 
     def __str__(self):
-        if not self.checkInfo():
+        if not self.checkValidation():
             raise NotFillResponseInfo("All necessary elements are not provided")
         
         res = ""
